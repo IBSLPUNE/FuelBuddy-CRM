@@ -8,24 +8,26 @@ def execute(filters=None):
 
 def get_columns():
     return [
-        {"label": "Business Head", "fieldname": "bushead", "fieldtype": "Data", "width": 150},
-        {"label": "Sales Person", "fieldname": "slp", "fieldtype": "Data", "width": 150},
+        #{"label": "Business Head", "fieldname": "bushead", "fieldtype": "Data", "width": 150},
+        #{"label": "Sales Person", "fieldname": "slp", "fieldtype": "Data", "width": 150},
         {"label": "Team", "fieldname": "team", "fieldtype": "Data", "width": 150},
-        {"label": "Zonal Head", "fieldname": "head", "fieldtype": "Data", "width": 150},
-        {"label": "Zonal Head Name", "fieldname": "head_name", "fieldtype": "Data", "width": 150},
-        {"label": "Team Username", "fieldname": "team_username", "fieldtype": "Data", "width": 150},
-        {"label": "BD Name", "fieldname": "bd_name", "fieldtype": "Data", "width": 150},
-        {"label": "Net Outstanding Amount", "fieldname": "net_outstanding_amount", "fieldtype": "Currency", "width": 150},
-        {"label": "Net Overdue Amount", "fieldname": "net_overdue_amount", "fieldtype": "Currency", "width": 150},
-        {"label": "Last Working Day Target", "fieldname": "lwd_tgt", "fieldtype": "Float", "width": 150},
-        {"label": "Last Working Day Actual", "fieldname": "lwd_actual", "fieldtype": "Float", "width": 150},
-        {"label": "Last Working Day Attainment (%)", "fieldname": "lwd_att", "fieldtype": "Percent", "width": 150},
-        {"label": "Weekly Target", "fieldname": "week_tgt", "fieldtype": "Float", "width": 150},
-        {"label": "Weekly Collection", "fieldname": "week_collection", "fieldtype": "Float", "width": 150},
-        {"label": "Weekly Attainment (%)", "fieldname": "week_att", "fieldtype": "Percent", "width": 150},
-        {"label": "Monthly Target", "fieldname": "month_tgt", "fieldtype": "Float", "width": 150},
-        {"label": "Monthly Collection", "fieldname": "month_collection", "fieldtype": "Float", "width": 150},
-        {"label": "Monthly Attainment (%)", "fieldname": "month_att", "fieldtype": "Percent", "width": 150},
+        #{"label": "Zonal Head", "fieldname": "head", "fieldtype": "Data", "width": 150},
+        #{"label": "Zonal Head Name", "fieldname": "head_name", "fieldtype": "Data", "width": 150},
+        #{"label": "Team Username", "fieldname": "team_username", "fieldtype": "Data", "width": 150},
+        {"label": "AE", "fieldname": "bd_name", "fieldtype": "Data", "width": 150},
+        {"label": "Outstanding (Rs) Lacs", "fieldname": "net_outstanding_amount", "fieldtype": "Currency", "width": 150},
+        {"label": "Overdue (Rs) Lacs", "fieldname": "net_overdue_amount", "fieldtype": "Currency", "width": 150},
+        {"label": "LWD TGT (Rs) Cr", "fieldname": "lwd_tgt", "fieldtype": "Float", "width": 150},
+        {"label": "Actual Cr", "fieldname": "lwd_actual", "fieldtype": "Float", "width": 150},
+        {"label": "LWD Att %", "fieldname": "lwd_att", "fieldtype": "Percent", "width": 150},
+        {"label": "Week TGT (Rs) Cr", "fieldname": "week_tgt", "fieldtype": "Float", "width": 150},
+        {"label": "WTD TGT", "fieldname": "wtd_tgt", "fieldtype": "Float", "width": 150},
+        {"label": "Actual Cr", "fieldname": "Week_Actual", "fieldtype": "Float", "width": 150},
+        {"label": "Weekly Att (%)", "fieldname": "week_att", "fieldtype": "Percent", "width": 150},
+        {"label": "Month TGT", "fieldname": "Month_TGT", "fieldtype": "Float", "width": 150},
+        {"label": "MTD TGT", "fieldname": "mtd_tgt", "fieldtype": "Float", "width": 150},
+        {"label": "Actual Cr", "fieldname": "MTD_Actual", "fieldtype": "Float", "width": 150},
+        {"label": "MTD Att (%)", "fieldname": "month_att", "fieldtype": "Percent", "width": 150},
     ]
 
 def get_data(filters):
@@ -406,14 +408,14 @@ def get_data(filters):
 			END,0) AS lwd_att,
 			ROUND((bd.weekly_targets * 90) / 10000000, 2) AS week_tgt,
 			ROUND(((bd.weekly_targets *90) / (10000000 * (SELECT working_days_week FROM work_days_summary_week))) * (SELECT days_passed_week FROM work_days_summary_week), 2) AS wtd_tgt,
-				ROUND(wc.week_collection / 10000000, 2) AS month_collection,
+				ROUND(wc.week_collection / 10000000, 2) AS Week_Actual,
 				ROUND(CASE 
 				WHEN COALESCE(ROUND((bd.weekly_targets * 90) / 10000000, 2), 0) = 0 THEN 0 
 				ELSE (COALESCE(ROUND(wc.week_collection / 10000000, 2), 0) / ROUND(((bd.weekly_targets * 90) / (10000000 * (SELECT working_days_week FROM work_days_summary_week))) * (SELECT days_passed_week FROM work_days_summary_week), 2)) * 100 
 			END,0) AS week_att,
 				ROUND((bd.monthly_targets * 90) / 10000000, 2) AS Month_TGT,
-			ROUND((bd.monthly_targets * 90)  / (10000000 * (SELECT working_days_month FROM work_days_summary_month)) * (SELECT day_of_month FROM current_day_of_month), 2) AS month_tgt,
-			ROUND(mc.month_collection / 10000000, 2) AS month_collection,
+			ROUND((bd.monthly_targets * 90)  / (10000000 * (SELECT working_days_month FROM work_days_summary_month)) * (SELECT day_of_month FROM current_day_of_month), 2) AS mtd_tgt,
+			ROUND(mc.month_collection / 10000000, 2) AS MTD_Actual,
 					ROUND(CASE 
 					WHEN COALESCE(ROUND((bd.monthly_targets * 90) / 10000000, 2), 0) = 0 THEN 0 
 					ELSE (COALESCE(ROUND(mc.month_collection / 10000000, 2), 0) / ROUND((bd.monthly_targets * 90) / (10000000 * (SELECT working_days_month FROM work_days_summary_month)) * (SELECT day_of_month FROM current_day_of_month), 2)) * 100 
