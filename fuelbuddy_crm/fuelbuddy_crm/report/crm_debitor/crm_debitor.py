@@ -4,8 +4,8 @@ from frappe.utils import cint, flt
 def execute(filters=None):
     # Define columns for the report
     columns = [
-        {"label": "Team", "fieldname": "team", "fieldtype": "Data", "width": 150},
-        {"label": "Team Username", "fieldname": "team_username", "fieldtype": "Data", "width": 150},
+        {"label": "Team", "fieldname": "custom_team", "fieldtype": "Data", "width": 150},
+        {"label": "BD", "fieldname": "team_username", "fieldtype": "Data", "width": 150},
         {"label": "Zonal Head Sales Person", "fieldname": "zonal_head_sales_person", "fieldtype": "Data", "width": 150},
         {"label": "Zonal Head", "fieldname": "zonal_head", "fieldtype": "Data", "width": 150},
         {"label": "Customer ID", "fieldname": "customer_id", "fieldtype": "Data", "width": 120},
@@ -14,7 +14,7 @@ def execute(filters=None):
         {"label": "Credit Limit", "fieldname": "credit_limit", "fieldtype": "Currency", "width": 100},
         {"label": "Payment Terms", "fieldname": "payment_terms", "fieldtype": "Int", "width": 80},
         {"label": "Last Delivery City", "fieldname": "last_delivery_city", "fieldtype": "Data", "width": 150},
-        {"label": "Allowed Credit Breach", "fieldname": "allowed_credit_breach", "fieldtype": "Data", "width": 100},
+        {"label": "Credit Breach", "fieldname": "allowed_credit_breach", "fieldtype": "Data", "width": 100},
         {"label": "Ledger", "fieldname": "ledger", "fieldtype": "Currency", "width": 120},
         {"label": "Net Outstanding", "fieldname": "net_outstanding", "fieldtype": "Currency", "width": 120},
         {"label": "Net Overdue", "fieldname": "net_overdue", "fieldtype": "Currency", "width": 120},
@@ -355,7 +355,7 @@ def execute(filters=None):
 	  15
 	)
 	select distinct
-	sp.custom_team AS team,
+	sp.custom_team,
 	sp.team_user_name AS team_username,
 	bd.zonal_head_sales_person,
 	bd.zonal_head,
@@ -376,7 +376,7 @@ def execute(filters=None):
 	left join final_cte fc  on fc.bd = bd.bd
 	LEFT JOIN sales_person sp ON sp.custom_user = fc.bd
 	where rank = 1
-	and customer_payment_type = 'Postpaid'
+	
 	AND (
         (bd.zonal_head = %s )
         OR (bd.bd = %s)                     
