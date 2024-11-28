@@ -30,13 +30,9 @@ def execute(filters=None):
 	    si.name, 
 	    si.posting_date, 
 	    si.posting_time, 
-	    si.grand_total, 
 	    si.outstanding_amount, 
-	    si.total_advance, 
-	    si.set_warehouse, 
 	    si.status, 
 	    si.customer, 
-	    si.contact_person, 
 	    si.shipping_address_name, 
 	    si.docstatus,
 	    case when si.status not in ('Cancelled','Paid') then si.posting_date else null end as posting_date2,
@@ -55,13 +51,9 @@ def execute(filters=None):
 	    si.name, 
 	    si.posting_date, 
 	    si.posting_time, 
-	    si.grand_total, 
 	    si.outstanding_amount, 
-	    si.total_advance, 
-	    si.set_warehouse, 
 	    si.status, 
 	    si.customer, 
-	    si.contact_person, 
 	    si.shipping_address_name, 
 	    si.docstatus,
 	    ROW_NUMBER() OVER (
@@ -168,7 +160,6 @@ def execute(filters=None):
 	sale_invoices_details AS (
 	 SELECT DISTINCT si.name AS invoiceId, 
 	    si.status, 
-	    si.grand_total, 
 	    si.outstanding_amount
 	    FROM 
 	    `latest_si_by_sales_order` si 
@@ -189,27 +180,22 @@ def execute(filters=None):
 	    SELECT name AS team_user_name,
 		   custom_user, custom_team
 	    FROM `tabSales Person`
+	    where  name not in ('Abhishek Anand','Ankur Goel','Narayan Sathe','Nora Bali','Palash Gupta','Ravi','SK Arora','Setu Joshi','Vadivel Nandhyalam')
 	),
 	cte AS (
 	  SELECT 
 	    DISTINCT si.name AS invoice_id, 
 	    si.status AS invoice_status, 
-	    si.grand_total AS invoice_grand_total, 
 	    si.outstanding_amount AS invoice_outstanding_amount, 
-	    si.total_advance AS invoice_total_advance, 
 	    si.posting_date AS invoice_posting_date, 
 	    si.posting_date2,
-	    si.posting_time AS invoice_posting_time,
 	    sid.outstanding_amount AS outstandingAmount, 
 	    customer.name AS customer_id, 
 	    customer.customer_name AS customer_name, 
 	    customer.payment_type AS customer_payment_type, 
-	    contact.mobile_number AS primary_contact_mobile_no, 
 	    customer.custom_lead_owner AS lead_owner, 
-	    lead.referred_by AS lead_referred_by, 
 	    customer.account_manager, 
 	    ccl.credit_limit, 
-	    lead.zones_ AS zone, 
 	    tPe.last_payment_entry_date AS payment_entry_posting_date, 
 	    lia.city AS last_delivery_city, 
 	CAST(REGEXP_REPLACE(customer.payment_terms, '[^0-9]', '') AS UNSIGNED) AS payment_terms, 
@@ -233,13 +219,10 @@ def execute(filters=None):
 	  cte.customer_id, 
 	  cte.customer_name, 
 	  cte.customer_payment_type, 
-	  cte.primary_contact_mobile_no, 
 	  cte.lead_owner, 
-	  cte.lead_referred_by, 
 	  cte.account_manager as bd, 
 	  cte.credit_limit, 
 	  cte.payment_terms, 
-	  cte.zone, 
 	  cte.last_delivery_city, 
 	  cte.allowed_credit_breach, 
 	  tGl.total_gl_amount as ledger,
@@ -285,16 +268,6 @@ def execute(filters=None):
 		),
 	    0), 
 	2) AS overdue_amount_this_week,
-	      ROUND(
-	    GREATEST(
-	      SUM(
-	      CASE WHEN cte.invoice_posting_date <= DATE_SUB(
-		CURRENT_DATE(), 
-		INTERVAL cte.payment_terms DAY
-	      ) THEN cte.invoice_outstanding_amount ELSE 0 END
-	    ) - IFNULL(tPe.total_unallocated_amount, 0)- IFNULL(tJe.total_jv_amount, 0), 
-	    0), 
-	  2) as net_overdue_amount,
 	    case when ROUND(
 	    GREATEST(
 	      SUM(
@@ -313,24 +286,7 @@ def execute(filters=None):
 	      ) THEN cte.invoice_outstanding_amount ELSE 0 END
 	    ) - IFNULL(tPe.total_unallocated_amount, 0)- IFNULL(tJe.total_jv_amount, 0), 
 	    0), 
-	  2) end as net_overdue2,
-	  SUM(
-	    CASE WHEN cte.invoice_posting_date >= DATE_SUB(
-	      CURRENT_DATE(), 
-	      INTERVAL 30 DAY
-	    ) THEN cte.invoice_grand_total ELSE 0 END
-	  ) last_30_days_sales_amount, 
-	  (
-	    CASE WHEN tGl.total_gl_amount > 0  THEN tGl.total_gl_amount ELSE 0 END 
-	  ) / NULLIF(
-	    SUM(
-	      CASE WHEN cte.invoice_posting_date >= DATE_SUB(
-		CURRENT_DATE(), 
-		INTERVAL 30 DAY
-	      ) THEN cte.invoice_grand_total ELSE 0 END
-	    ) / 30, 
-	    0
-	  ) AS avg_outstanding_days
+	  2) end as net_overdue2
 	FROM 
 	  cte 
 	  LEFT JOIN `gl_entry_totals` tGl ON tGl.customer_id = cte.customer_id
@@ -349,14 +305,11 @@ def execute(filters=None):
 	  9,
 	  10, 
 	  11, 
-	  12,
-	  13,
-	  14,
-	  15
+	  12
 	)
 	select distinct
-	sp.custom_team,
-	sp.team_user_name AS team_username,
+	sp.custom_team AS Team,
+	sp.team_user_name AS Team_Username,
 	bd.zonal_head_sales_person,
 	bd.zonal_head,
 	customer_id, 
@@ -376,12 +329,12 @@ def execute(filters=None):
 	left join final_cte fc  on fc.bd = bd.bd
 	LEFT JOIN sales_person sp ON sp.custom_user = fc.bd
 	where rank = 1
-	
+	and customer_payment_type = 'Postpaid'
 	AND (
         (bd.zonal_head = %s )
         OR (bd.bd = %s)                     
         OR (st.business_head = %s)
-      	) GROUP BY bd.bd
+      	)
     """
     
     # Execute the query
