@@ -82,7 +82,7 @@ def execute(filters=None):
     SELECT DISTINCT
         sp.custom_team AS Team,
         sp.team_user_name AS Team_Username,
-        bd.bd AS BD,
+        bd.bd_sales_person AS BD,
         bd.zonal_head_sales_person,
         bd.zonal_head,
         open_leads,
@@ -121,28 +121,27 @@ def execute(filters=None):
 
     # Define the columns
     columns = [
-        {"fieldname": "Team", "label": "Team", "fieldtype": "Data", "width": 150},
-        {"fieldname": "Team_Username", "label": "Team Username", "fieldtype": "Data", "width": 150},
-        {"fieldname": "BD", "label": "Business Developer", "fieldtype": "Data", "width": 200},
+        {"fieldname": "Team", "label": "Team Name", "fieldtype": "Data", "width": 150},
+        #{"fieldname": "Team_Username", "label": "Team Username", "fieldtype": "Data", "width": 150},
         {"fieldname": "zonal_head_sales_person", "label": "Zonal Head", "fieldtype": "Data", "width": 150},
+        {"fieldname": "BD", "label": "BD Name", "fieldtype": "Data", "width": 200},
         {"fieldname": "open_leads", "label": "Open Leads", "fieldtype": "Data", "width": 150},
         {"fieldname": "hot_leads", "label": "Hot Leads", "fieldtype": "Data", "width": 200},
         {"fieldname": "warm_leads", "label": "Warm Leads", "fieldtype": "Data", "width": 150},
         {"fieldname": "cold_leads", "label": "Cold Leads", "fieldtype": "Data", "width": 150},
-        {"fieldname": "warm_leads", "label": "Warm Leads", "fieldtype": "Data", "width": 150},
         {"fieldname": "not_marked_leads", "label": "Not Marked", "fieldtype": "Data", "width": 200},
         {"fieldname": "opportunity_leads", "label": "Opportunity Leads", "fieldtype": "Data", "width": 150},
-        {"fieldname": "In_Discussion_Meeting_Pending", "label": "In discussion meeting pending ", "fieldtype": "Data", "width": 150},
+        {"fieldname": "In_Discussion_Meeting_Pending", "label": "In discussion meeting pending ", "fieldtype": "Data", "width": 250},
         {"fieldname": "Meeting_Scheduled", "label": "Meeting scheduled", "fieldtype": "Data", "width": 200},
-        {"fieldname": "In_Negotitation", "label": "In negotiation", "fieldtype": "Data", "width": 150},
-        {"fieldname": "Finance_Approval_Pending", "label": "Finance approval pending", "fieldtype": "Data", "width": 200},
-        {"fieldname": "Ops_Submission_Pending", "label": "Ops submission pending", "fieldtype": "Data", "width": 150},
-        {"fieldname": "Ops_Approval_Pending", "label": "Ops approval pending", "fieldtype": "Data", "width": 150},
-        {"fieldname": "Ops_approved_Finance_closure_Pending", "label": "Ops approved finance closure pending", "fieldtype": "Data", "width": 150},
+        {"fieldname": "In_Negotitation", "label": "In negotiation", "fieldtype": "Data", "width": 200},
+        {"fieldname": "Finance_Approval_Pending", "label": "Finance approval pending", "fieldtype": "Data", "width": 250},
+        {"fieldname": "Ops_Submission_Pending", "label": "Ops submission pending", "fieldtype": "Data", "width": 250},
+        {"fieldname": "Ops_Approval_Pending", "label": "Ops approval pending", "fieldtype": "Data", "width": 250},
+        {"fieldname": "Ops_approved_Finance_closure_Pending", "label": "Ops approved finance closure pending", "fieldtype": "Data", "width": 250},
         {"fieldname": "Lost", "label": "Lost", "fieldtype": "Data", "width": 200},
         {"fieldname": "Onboarded", "label": "Onboarded", "fieldtype": "Data", "width": 150},
-        {"fieldname": "days_since_last_onboarding", "label": "Days since last onboarding", "fieldtype": "Data", "width": 150},
-        {"fieldname": "customers_0_orders", "label": "Customers with 0 orders", "fieldtype": "Data", "width": 200}
+        {"fieldname": "days_since_last_onboarding", "label": "Days since last onboarding", "fieldtype": "Data", "width": 250},
+        {"fieldname": "customers_0_orders", "label": "Customers with 0 orders", "fieldtype": "Data", "width": 250}
         
     ]
     
