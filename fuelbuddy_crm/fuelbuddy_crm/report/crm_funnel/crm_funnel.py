@@ -114,6 +114,7 @@ def execute(filters=None):
       AND ((bd.zonal_head = %s) OR (bd.bd = %s) OR (st.business_head = %s))
     GROUP BY 
         bd.bd
+    ORDER BY Team, Team_Username
     """
     
     # Execute the query

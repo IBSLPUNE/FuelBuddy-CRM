@@ -153,7 +153,7 @@ def execute(filters=None):
 	    Tomorrow != '-' OR 
 	    Week != '-')
       AND ((bd.zonal_head = %s) OR (bd.bd = %s) OR (st.business_head = %s))
-    order by Team,BD
+      ORDER BY Team
     """
     
     # Execute the query
