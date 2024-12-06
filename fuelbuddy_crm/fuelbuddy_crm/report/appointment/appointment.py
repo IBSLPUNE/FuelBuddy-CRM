@@ -110,7 +110,12 @@ def execute(filters=None):
 	    LEFT JOIN 
 		`tabOpportunity` tpo 
 		ON tpo.name = td.reference_name OR ep.reference_docname = tpo.name
-	    WHERE td.status = 'Open'
+	    WHERE td.status = 'Open' AND td.reference_type IN ('Customer', 'Lead', 'Opportunity','Event') 
+	    AND (
+		DATE(td.date) = CURDATE()
+		OR DATE(td.date) = CURDATE() - INTERVAL 1 DAY
+		OR WEEK(DATE(td.date)) = WEEK(CURDATE())
+	    )
 	    GROUP BY 
 		1, 2, 3, 4, 5, 6, 7,8
 	), 
@@ -153,7 +158,7 @@ def execute(filters=None):
 	    Tomorrow != '-' OR 
 	    Week != '-')
       AND ((bd.zonal_head = %s) OR (bd.bd = %s) OR (st.business_head = %s))
-      ORDER BY Team
+      ORDER BY Team, BD
     """
     
     # Execute the query
@@ -164,7 +169,7 @@ def execute(filters=None):
         {"fieldname": "Team", "label": "Team Name", "fieldtype": "Data", "width": 150},
         #{"fieldname": "Team_Username", "label": "Team Username", "fieldtype": "Data", "width": 150},
         {"fieldname": "BD", "label": "BD Name", "fieldtype": "Data", "width": 200},
-        {"fieldname": "zonal_head_sales_person", "label": "Zonal Head", "fieldtype": "Data", "width": 150},
+        {"fieldname": "Zonal_head", "label": "Zonal Head", "fieldtype": "Data", "width": 150},
         {"fieldname": "Todo_ID", "label": "Todo ID", "fieldtype": "Data", "width": 150},
         {"fieldname": "Appointment_type", "label": "Appointment Type", "fieldtype": "Data", "width": 200},
         {"fieldname": "Reference_Type", "label": "Reference Type", "fieldtype": "Data", "width": 150},
