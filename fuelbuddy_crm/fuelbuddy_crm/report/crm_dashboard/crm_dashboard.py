@@ -3,172 +3,257 @@ from frappe.utils import today
 
 def execute(filters=None):
     query = """
-    WITH RECURSIVE dates_in_week AS (
-        SELECT DATE(DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY)) AS day
-        UNION ALL
-        SELECT DATE_ADD(day, INTERVAL 1 DAY)
-        FROM dates_in_week
-        WHERE day < DATE(DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY)) + INTERVAL 6 DAY
-    ),
-    working_days_in_week AS (
-        SELECT day, DAYOFWEEK(day) AS day_of_week
-        FROM dates_in_week
-    ),
-    work_days_summary_week AS (
-        SELECT 
-            COUNT(*) AS working_days_week,
-            SUM(CASE WHEN day <= CURRENT_DATE() THEN 1 ELSE 0 END) AS days_passed_week
-        FROM working_days_in_week
-        WHERE day_of_week NOT IN (1)
-    ),
-    dates_in_month AS (
-        SELECT DATE(DATE_FORMAT(CURRENT_DATE(), '%%Y-%%m-01')) AS day
-        UNION ALL
-        SELECT DATE_ADD(day, INTERVAL 1 DAY)
-        FROM dates_in_month
-        WHERE day < LAST_DAY(CURRENT_DATE())
-    ),
-    working_days_in_month AS (
-        SELECT day, DAYOFWEEK(day) AS day_of_week
-        FROM dates_in_month
-    ),
-    work_days_summary_month AS (
-        SELECT 
-            COUNT(*) AS working_days_month
-        FROM working_days_in_month
-        WHERE day_of_week NOT IN (1)
-    ),
-    current_day_of_month AS (
-        SELECT DAY(CURRENT_DATE()) AS day_of_month
-    ),
-    daily_achivement AS (
-        SELECT bd, sales_target,
-               SUM(CASE WHEN date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY) THEN daily_achievement ELSE 0 END) AS yesterday_achivement,
-               SUM(CASE WHEN date = CURRENT_DATE() THEN daily_achievement ELSE 0 END) AS today_achivement
-        FROM `tabDaily Achievement`
-        GROUP BY 1, 2
-    ),
-    weekly_achivement AS (
-        SELECT bd, sales_target,
-               SUM(CASE 
-                       WHEN WEEK(date) = WEEK(CURRENT_DATE()) 
-                            AND YEAR(date) = YEAR(CURRENT_DATE())
-                       THEN weekly_achievement 
-                       ELSE 0 
-                   END) AS week_till_date_achievement
-        FROM `tabWeekly Achievement`
-        GROUP BY 1, 2
-    ),
-    monthly_achivement AS (
-        SELECT bd, sales_target,
-               SUM(CASE 
-                       WHEN MONTH(date) = MONTH(CURRENT_DATE()) 
-                            AND YEAR(date) = YEAR(CURRENT_DATE())
-                       THEN monthly_achievement
-                       ELSE 0 
-                   END) AS month_till_date_achievement
-        FROM `tabMonthly Achievement`
-        GROUP BY 1, 2
-    ),
-    zonal_target AS (
-        SELECT parent, zonal_head,
-               SUM(zones_target) AS zones_target
-        FROM `tabZonal`
-        GROUP BY 1, 2
-    ),
-    customer_count AS (
-        SELECT account_manager,
-               COUNT(DISTINCT name) AS customer_count
-        FROM `tabCustomer`
-        GROUP BY 1
-    ),
-    sales_person AS (
-        SELECT name AS team_user_name,
-               custom_user, custom_team
-        FROM `tabSales Person`
-    ),
-    ranked_data AS (
-        SELECT 
-            business_head,
-            posting_date,
-            name,
-            sales_person,
-            ROW_NUMBER() OVER (PARTITION BY business_head ORDER BY posting_date DESC) AS rank
-        FROM 
-            `tabSales Target`
-    )
-    SELECT DISTINCT
-        st.business_head AS bushead,
-        st.sales_person AS slp,
-        sp.custom_team AS Team,
-        bd.zonal_head as Head,
-        bd.zonal_head_sales_person as Head_Name,
-        sp.team_user_name AS Team_Username,
-        bd.bd_sales_person AS BD_name,
-        bd.bd,
-        cc.customer_count AS Customer_Count,
-        ROUND(bd.daily_targerts , 2) AS LWD_TGT,
-        ROUND(da.yesterday_achivement) AS LWD_Actual,
-        ROUND(CASE 
-            WHEN COALESCE(ROUND(bd.daily_targerts / 100000, 2), 0) = 0 THEN 0 
-            ELSE (COALESCE(ROUND(da.yesterday_achivement / 100000, 2), 0) / COALESCE(ROUND(bd.daily_targerts / 100000, 2), 0)) * 100 
-        END, 0) AS LWD_ATT,
-        ROUND(bd.weekly_targets / 100000, 2) AS Week_TGT,
-        ROUND((bd.weekly_targets / (100000 * (SELECT working_days_week FROM work_days_summary_week))) * (SELECT days_passed_week FROM work_days_summary_week), 2) AS WTD_TGT,
-        ROUND(wa.week_till_date_achievement / 100000, 2) AS WEEK_Actual,
-        ROUND(CASE 
-            WHEN COALESCE(ROUND(bd.weekly_targets / 100000, 2), 0) = 0 THEN 0 
-            ELSE (COALESCE(ROUND(wa.week_till_date_achievement / 100000, 2), 0) / COALESCE(ROUND(bd.weekly_targets / 100000, 2), 0)) * 100 
-        END, 0) AS WEEK_ATT,
-        ROUND(bd.monthly_targets / 100000, 2) AS Month_TGT,
-        ROUND(bd.monthly_targets / (100000 * (SELECT working_days_month FROM work_days_summary_month)) * (SELECT day_of_month FROM current_day_of_month), 2) AS MTD_TGT,
-        ROUND(ma.month_till_date_achievement / 100000, 2) AS MTD_Actual,
-        ROUND((bd.monthly_targets / (100000 * (SELECT working_days_month FROM work_days_summary_month)) * (SELECT day_of_month FROM current_day_of_month)) - (ma.month_till_date_achievement / 100000), 2) AS MTD_Short,
-        CONCAT(
-            ROUND(CASE 
-                WHEN COALESCE(ROUND(bd.monthly_targets / 100000, 2), 0) = 0 THEN 0 
-                ELSE (COALESCE(ROUND(ma.month_till_date_achievement / 100000, 2), 0) / COALESCE(ROUND(bd.monthly_targets / 100000, 2), 0)) * 100 
-            END, 0), '-'
-        ) AS `MTD_ATT`,
-        ROUND(bd.quarterly_targets / 100000, 2) AS Quaterly_TGT
-    FROM ranked_data st
-    LEFT JOIN `tabBusiness Deverloper` bd ON bd.parent = st.name
-    LEFT JOIN `daily_achivement` da ON da.bd = bd.bd AND da.sales_target = st.name 
-    LEFT JOIN `weekly_achivement` wa ON wa.bd = bd.bd AND wa.sales_target = st.name
-    LEFT JOIN `monthly_achivement` ma ON ma.bd = bd.bd AND ma.sales_target = st.name
-    LEFT JOIN sales_person sp ON sp.custom_user = bd.bd
-    LEFT JOIN zonal_target tz ON tz.parent = st.name AND tz.zonal_head = bd.zonal_head
-    LEFT JOIN customer_count cc ON cc.account_manager = bd.bd
-    WHERE rank = 1
-      AND (
-        (bd.zonal_head = %s ) -- Fetch data for the logged-in zonal_head
-        OR (bd.bd = %s)                      -- Fetch data for the logged-in BD
-        OR (st.business_head = %s)     -- Fetch data if the logged-in user is the BD
-      ) GROUP BY bd.bd
+    SELECT
+	    custom_team,
+	    zonal_head_sales_person,
+	    bd_sales_person, 
+	    Category,
+	    FORMAT(`LWD Target`, 2) AS `LWD_Target`,
+	    FORMAT(`LWD Actual`, 2) AS `LWD_Actual`,
+	    FORMAT(`WTD Target`, 2) AS `WTD_Target`, 
+	    FORMAT(`WTD Actual`, 2) AS `WTD_Actual`,
+	    FORMAT(`MTD Target`, 2) AS `MTD_Target`,
+	    FORMAT(`MTD Actual`, 2) AS `MTD_Actual`,
+	    FORMAT(`QTD Target`, 2) AS `QTD_Target`,
+	    FORMAT(`QTD Actual`, 2) AS `QTD_Actual`
+	    
+	FROM (
+	    SELECT
+		sp.custom_team,
+		bd.zonal_head_sales_person,
+		bd.bd_sales_person,
+		bd.bd,
+		'Orders' AS `Category`,
+		MAX(CASE 
+		    WHEN DATE(da.date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) 
+		    THEN da.daily_target
+		    ELSE 0 
+		END) AS `LWD Target`,
+	    MAX(CASE 
+		WHEN DATE(da.date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) 
+		THEN da.daily_achievement_sales_order 
+		ELSE 0 
+	    END) AS `LWD Actual`,
+		MAX(CASE 
+		    WHEN WEEK(wa.date) = WEEK(CURDATE()) AND YEAR(wa.date) = YEAR(CURDATE()) 
+		    THEN wa.weekly_target 
+		    ELSE 0 
+		END) AS `WTD Target`,
+		MAX(CASE 
+		    WHEN WEEK(wa.date) = WEEK(CURDATE()) AND YEAR(wa.date) = YEAR(CURDATE()) 
+		    THEN wa.daily_achievement_sales_order 
+		    ELSE 0 
+		END) AS `WTD Actual`,
+		MAX(CASE 
+		WHEN MONTH(ma.date) = MONTH(CURDATE()) AND YEAR(ma.date) = YEAR(CURDATE()) 
+		THEN ma.monthly_target 
+		ELSE 0 
+	    END) AS `MTD Target`,
+	    MAX(CASE 
+		WHEN MONTH(ma.date) = MONTH(CURDATE()) AND YEAR(ma.date) = YEAR(CURDATE()) 
+		THEN ma.daily_achievement_sales_order 
+		ELSE 0 
+	    END) AS `MTD Actual`,
+	    MAX(CASE 
+		WHEN QUARTER(qa.date) = QUARTER(CURDATE()) AND YEAR(qa.date) = YEAR(CURDATE()) 
+		THEN qa.quaterly_target
+		ELSE 0 
+	    END) AS `QTD Target`,
+	    MAX(CASE 
+		WHEN QUARTER(qa.date) = QUARTER(CURDATE()) AND YEAR(qa.date) = YEAR(CURDATE()) 
+		THEN qa.quaterly_achievement_sales_order
+		ELSE 0 
+	    END) AS `QTD Actual`
+	    FROM
+		`tabSales Target` st
+	    LEFT JOIN
+		`tabBusiness Deverloper` bd ON bd.parent = st.name
+	    LEFT JOIN
+		`tabSales Person` sp ON sp.name= bd.bd_sales_person
+	    LEFT JOIN
+		`tabWeekly Achievement` wa ON wa.bd = bd.bd
+	    LEFT JOIN 
+		`tabDaily Achievement` da ON da.bd = bd.bd
+	    LEFT JOIN 
+	    `tabMonthly Achievement` ma ON ma.bd = bd.bd
+	LEFT JOIN 
+	    `tabQuaterly Achievement` qa ON qa.bd = bd.bd
+	    WHERE
+		((wa.date BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE())
+		OR DATE(da.date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+		OR (MONTH(ma.date) = MONTH(CURDATE()) AND YEAR(ma.date) = YEAR(CURDATE()))
+	    OR (QUARTER(qa.date) = QUARTER(CURDATE()) AND YEAR(qa.date) = YEAR(CURDATE())))
+	    AND (bd.bd = %s OR bd.zonal_head = %s OR st.business_head = %s)
+	    GROUP BY 
+		bd.bd
+
+	    UNION ALL
+
+	    SELECT
+		sp.custom_team,
+		bd.zonal_head_sales_person,
+		bd.bd_sales_person,
+		bd.bd,
+		'Deliveries' AS `Category`,
+		MAX(CASE 
+		    WHEN DATE(da.date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) 
+		    THEN da.daily_target
+		    ELSE 0 
+		END) AS `LWD Target`,
+	    MAX(CASE 
+		WHEN DATE(da.date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) 
+		THEN da.daily_achievement 
+		ELSE 0 
+	    END) AS `LWD Actual`,
+		MAX(CASE 
+		    WHEN WEEK(wa.date) = WEEK(CURDATE()) AND YEAR(wa.date) = YEAR(CURDATE()) 
+		    THEN wa.weekly_target 
+		    ELSE 0 
+		END) AS `WTD Target`,
+		MAX(CASE 
+		    WHEN WEEK(wa.date) = WEEK(CURDATE()) AND YEAR(wa.date) = YEAR(CURDATE()) 
+		    THEN wa.weekly_achievement
+		    ELSE 0 
+		END) AS `WTD Actual`,
+		MAX(CASE 
+		WHEN MONTH(ma.date) = MONTH(CURDATE()) AND YEAR(ma.date) = YEAR(CURDATE()) 
+		THEN ma.monthly_target 
+		ELSE 0 
+	    END) AS `MTD Target`,
+	    MAX(CASE 
+		WHEN MONTH(ma.date) = MONTH(CURDATE()) AND YEAR(ma.date) = YEAR(CURDATE()) 
+		THEN ma.monthly_achievement 
+		ELSE 0 
+	    END) AS `MTD Actual`,
+	    MAX(CASE 
+		WHEN QUARTER(qa.date) = QUARTER(CURDATE()) AND YEAR(qa.date) = YEAR(CURDATE()) 
+		THEN qa.quaterly_target
+		ELSE 0 
+	    END) AS `QTD Target`,
+	    MAX(CASE 
+		WHEN QUARTER(qa.date) = QUARTER(CURDATE()) AND YEAR(qa.date) = YEAR(CURDATE()) 
+		THEN qa.quaterly_achievement 
+		ELSE 0 
+	    END) AS `QTD Actual`
+	    FROM
+		`tabSales Target` st
+	    LEFT JOIN
+		`tabBusiness Deverloper` bd ON bd.parent = st.name
+	    LEFT JOIN
+		`tabSales Person` sp ON sp.name= bd.bd_sales_person
+	    LEFT JOIN
+		`tabWeekly Achievement` wa ON wa.bd = bd.bd
+	    LEFT JOIN 
+	    `tabDaily Achievement` da ON da.bd = bd.bd
+	    LEFT JOIN 
+	    `tabMonthly Achievement` ma ON ma.bd = bd.bd
+	LEFT JOIN 
+	    `tabQuaterly Achievement` qa ON qa.bd = bd.bd
+	    WHERE
+		((wa.date BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE())
+		OR DATE(da.date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+		OR (MONTH(ma.date) = MONTH(CURDATE()) AND YEAR(ma.date) = YEAR(CURDATE()))
+	    OR (QUARTER(qa.date) = QUARTER(CURDATE()) AND YEAR(qa.date) = YEAR(CURDATE())))
+	    AND (bd.bd = %s OR bd.zonal_head = %s OR st.business_head = %s)
+	    GROUP BY 
+		bd.bd
+	 UNION ALL
+	 SELECT
+		sp.custom_team,
+		bd.zonal_head_sales_person,
+		bd.bd_sales_person,
+		bd.bd,
+		'Collection' AS `Category`,
+		MAX(CASE 
+		    WHEN DATE(da.date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) 
+		    THEN da.daily_target*90
+		    ELSE 0 
+		END) AS `LWD Target`,
+	    MAX(CASE 
+		WHEN DATE(da.date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) 
+		THEN da.collection 
+		ELSE 0 
+	    END) AS `LWD Actual`,
+		MAX(CASE 
+		    WHEN WEEK(wa.date) = WEEK(CURDATE()) AND YEAR(wa.date) = YEAR(CURDATE()) 
+		    THEN wa.weekly_target*90 
+		    ELSE 0 
+		END) AS `WTD Target`,
+		MAX(CASE 
+		    WHEN WEEK(wa.date) = WEEK(CURDATE()) AND YEAR(wa.date) = YEAR(CURDATE()) 
+		    THEN wa.collection 
+		    ELSE 0 
+		END) AS `WTD Actual`,
+		MAX(CASE 
+		WHEN MONTH(ma.date) = MONTH(CURDATE()) AND YEAR(ma.date) = YEAR(CURDATE()) 
+		THEN ma.monthly_target*90 
+		ELSE 0 
+	    END) AS `MTD Target`,
+	    MAX(CASE 
+		WHEN MONTH(ma.date) = MONTH(CURDATE()) AND YEAR(ma.date) = YEAR(CURDATE()) 
+		THEN ma.collection
+		ELSE 0 
+	    END) AS `MTD Actual`,
+	    MAX(CASE 
+		WHEN QUARTER(qa.date) = QUARTER(CURDATE()) AND YEAR(qa.date) = YEAR(CURDATE()) 
+		THEN qa.quaterly_target*90
+		ELSE 0 
+	    END) AS `QTD Target`,
+	    MAX(CASE 
+		WHEN QUARTER(qa.date) = QUARTER(CURDATE()) AND YEAR(qa.date) = YEAR(CURDATE()) 
+		THEN qa.collection
+		ELSE 0 
+	    END) AS `QTD Actual`
+	    FROM
+		`tabSales Target` st
+	    LEFT JOIN
+		`tabBusiness Deverloper` bd ON bd.parent = st.name
+	    LEFT JOIN
+		`tabSales Person` sp ON sp.name= bd.bd_sales_person
+	    LEFT JOIN
+		`tabWeekly Achievement` wa ON wa.bd = bd.bd
+	    LEFT JOIN 
+		`tabDaily Achievement` da ON da.bd = bd.bd
+	    LEFT JOIN 
+	    `tabMonthly Achievement` ma ON ma.bd = bd.bd
+	LEFT JOIN 
+	    `tabQuaterly Achievement` qa ON qa.bd = bd.bd
+	    WHERE
+		((wa.date BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE())
+		OR DATE(da.date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+		OR (MONTH(ma.date) = MONTH(CURDATE()) AND YEAR(ma.date) = YEAR(CURDATE()))
+	    OR (QUARTER(qa.date) = QUARTER(CURDATE()) AND YEAR(qa.date) = YEAR(CURDATE())))
+	    AND (bd.bd = %s OR bd.zonal_head = %s OR st.business_head = %s)
+	    GROUP BY 
+		bd.bd
+	) AS combined_data
+	ORDER BY 
+	    custom_team,zonal_head_sales_person,bd_sales_person,
+	    FIELD(Category, 'Orders', 'Deliveries', 'Collection');
     """
-    data = frappe.db.sql(query, (frappe.session.user, frappe.session.user, frappe.session.user), as_dict=True)
+    data = frappe.db.sql(query, (frappe.session.user, frappe.session.user, frappe.session.user,frappe.session.user, frappe.session.user, frappe.session.user,frappe.session.user, frappe.session.user, frappe.session.user), as_dict=True)
     columns = [
-        {"fieldname": "Team", "label": "Team", "fieldtype": "Data"},
+        {"fieldname": "custom_team", "label": "Team", "fieldtype": "Data", "width":150},
         #{"fieldname": "slp", "label": "Sales Person", "fieldtype": "Data"},
         #{"fieldname": "bushead", "label": "Bussiness Head", "fieldtype": "Data"},
-        #{"fieldname": "Head", "label": "Zonal Head", "fieldtype": "Data"},
+        {"fieldname": "zonal_head_sales_person", "label": "Zonal Head", "fieldtype": "Data", "width":150},
         #{"fieldname": "Head_Name", "label": "Zonal Head Name", "fieldtype": "Data"},
         #{"fieldname": "Team_Username", "label": "Team Username", "fieldtype": "Data"},
-        {"fieldname": "BD_name", "label": "AE", "fieldtype": "Data"},
+        {"fieldname": "bd_sales_person", "label": "BD", "fieldtype": "Data", "width":150},
         #{"fieldname": "bd", "label": "BD", "fieldtype": "Data"},
-        {"fieldname": "Customer_Count", "label": "Customer", "fieldtype": "Int"},
-        {"fieldname": "LWD_TGT", "label": "LWD TGT Lacs", "fieldtype": "Float"},
-        {"fieldname": "LWD_Actual", "label": "Actual Lacs", "fieldtype": "Float"},
-        {"fieldname": "LWD_ATT", "label": "LWD ATT %", "fieldtype": "Percent"},
-        {"fieldname": "Week_TGT", "label": "Week TGT", "fieldtype": "Float"},
-        {"fieldname": "WTD_TGT", "label": "WTD TGT", "fieldtype": "Float"},
-        {"fieldname": "WEEK_Actual", "label": "Actual Lacs", "fieldtype": "Float"},
-        {"fieldname": "WEEK_ATT", "label": "Weekly ATT %", "fieldtype": "Float"},
-        {"fieldname": "Month_TGT", "label": "Month TGT", "fieldtype": "Float"},
-        {"fieldname": "MTD_TGT", "label": "MTD TGT", "fieldtype": "Float"},
-        {"fieldname": "MTD_Actual", "label": "Actual Lacs", "fieldtype": "Float"},
-        {"fieldname": "MTD_Short", "label": "MTD short", "fieldtype": "Float"},
-        {"fieldname": "MTD_ATT", "label": "MTD ATT %", "fieldtype": "Percent"},
+        {"fieldname": "Category", "label": "Category", "fieldtype": "Data", "width":100},
+        {"fieldname": "LWD_Target", "label": "LWD Target", "fieldtype": "Float", "width":150, "precision": 2},
+        {"fieldname": "LWD_Actual", "label": "LWD Achv.", "fieldtype": "Float", "width":150, "precision": 2},
+        #{"fieldname": "LWD_ATT", "label": "LWD ATT %", "fieldtype": "Percent"},
+        {"fieldname": "WTD_Target", "label": "WTD Target", "fieldtype": "Float", "width":150, "precision": 2},
+        {"fieldname": "WTD_Actual", "label": "WTD Achv.", "fieldtype": "Float", "width":150, "precision": 2},
+        #{"fieldname": "WEEK_Actual", "label": "Actual Lacs", "fieldtype": "Float"},
+        #{"fieldname": "WEEK_ATT", "label": "Weekly ATT %", "fieldtype": "Float"},
+        {"fieldname": "MTD_Target", "label": "MTD Target", "fieldtype": "Float", "width":150, "precision": 2},
+        {"fieldname": "MTD_Actual", "label": "MTD Achv.", "fieldtype": "Float", "width":150, "precision": 2},
+        #{"fieldname": "MTD_Actual", "label": "Actual Lacs", "fieldtype": "Float"},
+        {"fieldname": "QTD_Target", "label": "QTD Target", "fieldtype": "Float", "width":150, "precision": 2},
+        {"fieldname": "QTD_Actual", "label": "QTD Achv.", "fieldtype": "Float", "width":150, "precision": 2}
     ]
     return columns, data
 
